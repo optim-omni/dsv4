@@ -29,6 +29,11 @@ The counts were computed on `cudo-h100` from the DeepSeek V4 Flash `inference/mo
 - DeepSeek V4 Flash config and modeling: `sources/deepseek_v4_flash/`
 - Full fetched remote snapshot: `reports/remote_param_count_out/`
 
+## Reports
+
+- `reports/kv_cache_128k_nano_vs_qwen35.md`: 128k KV/cache footprint comparison for DSV4-nano and Qwen3.5.
+- `reports/prefix_cache_offload_128k_nano_vs_qwen35.md`: offload sizing for instant-recoverable prefix cache.
+
 ## Reproduce
 
 ```bash
