@@ -42,7 +42,7 @@ python3 scripts/param_count_dsv4.py
 
 The script fetches the upstream sources, writes `remote_param_count_out/`, and prints the count summary.
 
-Cache/offload calculations:
+Cache/offload calculations, defaulting to DSV4 `ckpt128` and Qwen3.5 linear state `ckpt1024`:
 
 ```bash
 python3 scripts/cache_memory_128k.py --format text

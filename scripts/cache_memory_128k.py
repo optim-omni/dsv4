@@ -129,38 +129,46 @@ def dsv4_nano_cache(seq_len: int, checkpoint_interval: int) -> dict[str, Any]:
         * shape.index_head_dim
         * shape.indexer_bytes_per_element
     )
-    compressed_backing_without_window_mib = main_compressed_mib - window_mib + indexer_mib
+    main_compressed_without_window_mib = main_compressed_mib - window_mib
+    main_compressor_incremental_state_mib = compressor_state_main_r4_mib + compressor_state_main_r128_mib
+    indexer_resident_mib = indexer_mib + compressor_state_indexer_mib
 
-    resident_with_compressor_mib = window_mib + compressor_incremental_state_mib
-    external_ckpt128_mib = all_checkpoint_windows_mib + compressed_backing_without_window_mib
-    restore_read_min_mib = resident_with_compressor_mib
+    resident_indexer_window_mib = indexer_resident_mib + window_mib
+    resident_with_main_compressor_mib = resident_indexer_window_mib + main_compressor_incremental_state_mib
+    external_ckpt128_mib = all_checkpoint_windows_mib + main_compressed_without_window_mib
+    restore_read_min_mib = window_mib + main_compressor_incremental_state_mib
     restore_read_materialized_worst_mib = (
-        compressed_backing_without_window_mib + window_mib + compressor_incremental_state_mib
+        main_compressed_without_window_mib + window_mib + main_compressor_incremental_state_mib
     )
 
     return {
         "shape": asdict(shape),
         "checkpoints": checkpoints,
         "resident": {
+            "indexer_kv_mib": indexer_mib,
+            "indexer_with_compressor_state_mib": indexer_resident_mib,
             "window_mib": window_mib,
+            "main_compressor_incremental_state_mib": main_compressor_incremental_state_mib,
             "compressor_incremental_state": {
                 "main_ratio4_mib": compressor_state_main_r4_mib,
                 "main_ratio128_mib": compressor_state_main_r128_mib,
                 "indexer_ratio4_mib": compressor_state_indexer_mib,
                 "total_mib": compressor_incremental_state_mib,
             },
-            "with_compressor_state_mib": resident_with_compressor_mib,
+            "with_indexer_window_mib": resident_indexer_window_mib,
+            "with_indexer_and_main_compressor_state_mib": resident_with_main_compressor_mib,
         },
         "external_exact_prefix": {
             "indexer_slots_per_layer": indexer_slots_per_layer,
             "main_compressed_kv_mib": main_compressed_mib,
+            "main_compressed_without_window_mib": main_compressed_without_window_mib,
             "indexer_kv_mib": indexer_mib,
-            "total_with_window_mib": main_compressed_mib + indexer_mib,
-            "total_without_window_mib": compressed_backing_without_window_mib,
+            "full_compressed_cache_total_mib": main_compressed_mib + indexer_mib,
+            "external_total_without_indexer_or_window_mib": main_compressed_without_window_mib,
         },
         "external_ckpt128": {
             "all_checkpoint_windows_mib": all_checkpoint_windows_mib,
-            "compressed_backing_without_window_mib": compressed_backing_without_window_mib,
+            "main_compressed_without_window_mib": main_compressed_without_window_mib,
             "total_mib": external_ckpt128_mib,
             "total_gib": mib_to_gib(external_ckpt128_mib),
         },
@@ -191,11 +199,11 @@ def qwen35_cache(seq_len: int, checkpoint_interval: int) -> dict[str, Any]:
         * shape.full_kv_elements_per_token_per_layer
         * shape.full_kv_bytes_per_element
     )
-    external_recurrent_ckpt128_mib = recurrent_one_mib * checkpoints
-    external_conv_ckpt128_mib = conv_one_mib * checkpoints
-    external_linear_ckpt128_mib = external_recurrent_ckpt128_mib + external_conv_ckpt128_mib
+    external_recurrent_checkpoints_mib = recurrent_one_mib * checkpoints
+    external_conv_checkpoints_mib = conv_one_mib * checkpoints
+    external_linear_checkpoints_mib = external_recurrent_checkpoints_mib + external_conv_checkpoints_mib
     resident_with_full_kv_mib = full_kv_mib + linear_state_one_mib
-    external_with_full_kv_mib = external_linear_ckpt128_mib + full_kv_mib
+    external_with_full_kv_mib = external_linear_checkpoints_mib + full_kv_mib
 
     return {
         "shape": asdict(shape),
@@ -213,13 +221,14 @@ def qwen35_cache(seq_len: int, checkpoint_interval: int) -> dict[str, Any]:
             "with_full_kv_mib": linear_state_one_mib + full_kv_mib,
             "with_full_kv_gib": mib_to_gib(linear_state_one_mib + full_kv_mib),
         },
-        "external_ckpt128": {
-            "recurrent_mib": external_recurrent_ckpt128_mib,
-            "recurrent_gib": mib_to_gib(external_recurrent_ckpt128_mib),
-            "conv_mib": external_conv_ckpt128_mib,
-            "conv_gib": mib_to_gib(external_conv_ckpt128_mib),
-            "linear_plus_conv_mib": external_linear_ckpt128_mib,
-            "linear_plus_conv_gib": mib_to_gib(external_linear_ckpt128_mib),
+        "external_state_checkpoints": {
+            "checkpoint_interval": checkpoint_interval,
+            "recurrent_mib": external_recurrent_checkpoints_mib,
+            "recurrent_gib": mib_to_gib(external_recurrent_checkpoints_mib),
+            "conv_mib": external_conv_checkpoints_mib,
+            "conv_gib": mib_to_gib(external_conv_checkpoints_mib),
+            "linear_plus_conv_mib": external_linear_checkpoints_mib,
+            "linear_plus_conv_gib": mib_to_gib(external_linear_checkpoints_mib),
             "with_full_kv_mib": external_with_full_kv_mib,
             "with_full_kv_gib": mib_to_gib(external_with_full_kv_mib),
         },
@@ -231,20 +240,26 @@ def qwen35_cache(seq_len: int, checkpoint_interval: int) -> dict[str, Any]:
     }
 
 
-def build_results(seq_len: int = 131_072, checkpoint_interval: int = 128) -> dict[str, Any]:
+def build_results(
+    seq_len: int = 131_072,
+    dsv4_checkpoint_interval: int = 128,
+    qwen_checkpoint_interval: int = 1024,
+) -> dict[str, Any]:
     return {
         "assumptions": {
             "batch_size": 1,
             "seq_len": seq_len,
-            "checkpoint_interval": checkpoint_interval,
-            "checkpoints": seq_len // checkpoint_interval,
+            "dsv4_checkpoint_interval": dsv4_checkpoint_interval,
+            "dsv4_checkpoints": seq_len // dsv4_checkpoint_interval,
+            "qwen_checkpoint_interval": qwen_checkpoint_interval,
+            "qwen_checkpoints": seq_len // qwen_checkpoint_interval,
             "units": "MiB/GiB are binary units",
             "dsv4_precision": "non-RoPE FP8 + RoPE BF16",
             "qwen_full_kv_precision": "INT8",
             "qwen_linear_state_precision": "BF16",
         },
-        "dsv4_nano": dsv4_nano_cache(seq_len, checkpoint_interval),
-        "qwen3_5_35b_a3b": qwen35_cache(seq_len, checkpoint_interval),
+        "dsv4_nano": dsv4_nano_cache(seq_len, dsv4_checkpoint_interval),
+        "qwen3_5_35b_a3b": qwen35_cache(seq_len, qwen_checkpoint_interval),
     }
 
 
@@ -257,31 +272,32 @@ def format_mib(value: float) -> str:
 def format_summary(results: dict[str, Any]) -> str:
     dsv4 = results["dsv4_nano"]
     qwen = results["qwen3_5_35b_a3b"]
+    qwen_external = qwen["external_state_checkpoints"]
     rows = [
         (
-            "DSV4-nano, CSA offload",
-            format_mib(dsv4["resident"]["with_compressor_state_mib"]),
+            "DSV4-nano, indexer resident, CSA offload",
+            format_mib(dsv4["resident"]["with_indexer_and_main_compressor_state_mib"]),
             f'{dsv4["external_ckpt128"]["total_mib"]} MiB = {dsv4["external_ckpt128"]["total_gib"]} GiB',
             format_mib(dsv4["restore_read"]["offset_pointer_min_mib"]),
         ),
         (
             "Qwen3.5, linear state offload, full KV resident",
             f'{qwen["resident"]["with_full_kv_mib"]} MiB = {qwen["resident"]["with_full_kv_gib"]} GiB',
-            f'{format_mib(qwen["external_ckpt128"]["linear_plus_conv_mib"])} = '
-            f'{qwen["external_ckpt128"]["linear_plus_conv_gib"]} GiB',
+            f'{format_mib(qwen_external["linear_plus_conv_mib"])} = '
+            f'{qwen_external["linear_plus_conv_gib"]} GiB',
             format_mib(qwen["restore_read"]["linear_state_only_mib"]),
         ),
         (
             "Qwen3.5, linear state + full KV offload",
             format_mib(qwen["resident"]["linear_plus_conv_current_mib"]),
-            f'{format_mib(qwen["external_ckpt128"]["with_full_kv_mib"])} = '
-            f'{qwen["external_ckpt128"]["with_full_kv_gib"]} GiB',
+            f'{format_mib(qwen_external["with_full_kv_mib"])} = '
+            f'{qwen_external["with_full_kv_gib"]} GiB',
             f'{qwen["restore_read"]["with_full_kv_128k_worst_mib"]} MiB = '
             f'{qwen["restore_read"]["with_full_kv_128k_worst_gib"]} GiB',
         ),
     ]
     lines = [
-        "ckpt128 arbitrary-boundary prefix cache recovery",
+        "DSV4 ckpt128 / Qwen ckpt1024 prefix cache recovery",
         "",
         "| scheme | resident memory | external backing | per-hit restore read |",
         "| --- | ---: | ---: | ---: |",
@@ -298,14 +314,15 @@ def check_reports(results: dict[str, Any], repo_root: Path) -> None:
     text = "\n".join(path.read_text() for path in report_paths)
     dsv4 = results["dsv4_nano"]
     qwen = results["qwen3_5_35b_a3b"]
+    qwen_external = qwen["external_state_checkpoints"]
     expected = [
-        f'{dsv4["external_exact_prefix"]["total_with_window_mib"]} MiB',
+        f'{dsv4["external_exact_prefix"]["full_compressed_cache_total_mib"]} MiB',
         f'{dsv4["external_ckpt128"]["total_mib"]} MiB',
         f'{dsv4["restore_read"]["materialized_128k_worst_mib"]} MiB',
-        f'{int(qwen["external_ckpt128"]["recurrent_mib"])} MiB',
-        f'{int(qwen["external_ckpt128"]["linear_plus_conv_mib"])} MiB',
-        f'{int(qwen["external_ckpt128"]["with_full_kv_mib"])} MiB',
-        f'{qwen["external_ckpt128"]["with_full_kv_gib"]} GiB',
+        f'{int(qwen_external["recurrent_mib"])} MiB',
+        f'{int(qwen_external["linear_plus_conv_mib"])} MiB',
+        f'{int(qwen_external["with_full_kv_mib"])} MiB',
+        f'{qwen_external["with_full_kv_gib"]} GiB',
     ]
     missing = [value for value in expected if value not in text]
     if missing:
@@ -333,15 +350,18 @@ def check_all(results: dict[str, Any], repo_root: Path) -> None:
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--seq-len", type=int, default=131_072)
-    parser.add_argument("--checkpoint-interval", type=int, default=128)
+    parser.add_argument("--dsv4-checkpoint-interval", type=int, default=128)
+    parser.add_argument("--qwen-checkpoint-interval", type=int, default=1024)
     parser.add_argument("--format", choices=["json", "text"], default="json")
     parser.add_argument("--check-reports", action="store_true")
     args = parser.parse_args()
 
-    if args.seq_len % args.checkpoint_interval != 0:
-        raise SystemExit("seq-len must be divisible by checkpoint-interval")
+    if args.seq_len % args.dsv4_checkpoint_interval != 0:
+        raise SystemExit("seq-len must be divisible by dsv4-checkpoint-interval")
+    if args.seq_len % args.qwen_checkpoint_interval != 0:
+        raise SystemExit("seq-len must be divisible by qwen-checkpoint-interval")
 
-    results = build_results(args.seq_len, args.checkpoint_interval)
+    results = build_results(args.seq_len, args.dsv4_checkpoint_interval, args.qwen_checkpoint_interval)
     if args.check_reports:
         check_all(results, Path(__file__).resolve().parents[1])
         return

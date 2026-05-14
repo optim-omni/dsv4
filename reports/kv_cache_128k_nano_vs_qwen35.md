@@ -83,8 +83,8 @@ total      = 311.5 MiB
 
 - 层数：`40`
 - 层模式：`30` 个 linear-attention 层 + `10` 个 full-attention 层
-- linear attention checkpoint 间隔：`128`
-- 128k 下 checkpoint 数量：`131072 / 128 = 1024`
+- linear attention checkpoint 间隔：`1024`
+- 128k 下 checkpoint 数量：`131072 / 1024 = 128`
 - linear value heads: `32`
 - linear key head dim: `128`
 - linear value head dim: `128`
@@ -109,9 +109,9 @@ linear recurrent checkpoint 内存：
 
 ```text
 recurrent_bytes = linear_layers * checkpoints * recurrent_elements * bf16_bytes
-                = 30 * 1024 * 524288 * 2
-                = 30720 MiB
-                = 30.0 GiB
+                = 30 * 128 * 524288 * 2
+                = 3840 MiB
+                = 3.75 GiB
 ```
 
 full-attention INT8 KV 内存：
@@ -131,19 +131,19 @@ full_kv_bytes = full_attention_layers * seq_len * full_kv_elements_per_token_per
 
 ```text
 conv_state_bytes = linear_layers * checkpoints * conv_dim * (conv_kernel_size - 1) * bf16_bytes
-                 = 30 * 1024 * 8192 * 3 * 2
-                 = 1440 MiB
-                 = 1.40625 GiB
+                 = 30 * 128 * 8192 * 3 * 2
+                 = 180 MiB
+                 = 0.17578125 GiB
 ```
 
 结果：
 
 ```text
-linear recurrent checkpoints = 30720 MiB
+linear recurrent checkpoints = 3840 MiB
 full-attention INT8 KV       = 1280 MiB
-total without conv state     = 32000 MiB = 31.25 GiB
-conv state, if checkpointed  = 1440 MiB = 1.40625 GiB
-total with conv state        = 33440 MiB = 32.65625 GiB
+total without conv state     = 5120 MiB = 5.0 GiB
+conv state, if checkpointed  = 180 MiB = 0.17578125 GiB
+total with conv state        = 5300 MiB = 5.17578125 GiB
 ```
 
 ## 结果
@@ -151,14 +151,14 @@ total with conv state        = 33440 MiB = 32.65625 GiB
 | 模型 / 口径 | 128k state memory |
 | --- | ---: |
 | DSV4-nano compressed KV，混合 FP8/BF16 | `311.5 MiB` |
-| Qwen3.5 linear recurrent checkpoints + full-attention INT8 KV | `32000 MiB = 31.25 GiB` |
-| Qwen3.5 再加 checkpointed conv state | `33440 MiB = 32.65625 GiB` |
+| Qwen3.5 linear recurrent checkpoints + full-attention INT8 KV | `5120 MiB = 5.0 GiB` |
+| Qwen3.5 再加 checkpointed conv state | `5300 MiB = 5.17578125 GiB` |
 
 相对 DSV4-nano：
 
 ```text
-Qwen without conv state = 32000 / 311.5 = 102.73x
-Qwen with conv state    = 33440 / 311.5 = 107.35x
+Qwen without conv state = 5120 / 311.5 = 16.44x
+Qwen with conv state    = 5300 / 311.5 = 17.01x
 ```
 
-一句话结论：在 `128k / batch=1` 这个口径下，Qwen3.5 的 linear-attention checkpoint state 是主要内存开销。即使 full-attention KV 用 INT8，Qwen3.5 仍需要大约 `31.25 GiB` 保存 recurrent checkpoints + full-attention KV；DSV4-nano 的 compressed mixed-precision KV 只需要 `311.5 MiB`。
+一句话结论：在 `128k / batch=1 / Qwen ckpt1024` 这个口径下，Qwen3.5 的 linear-attention checkpoint state 仍是主要内存开销之一。即使 full-attention KV 用 INT8，Qwen3.5 仍需要大约 `5.0 GiB` 保存 recurrent checkpoints + full-attention KV；DSV4-nano 的 compressed mixed-precision KV 只需要 `311.5 MiB`。
