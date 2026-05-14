@@ -1,0 +1,7 @@
+topk=2	total=35.085266512B	active=2.325655120B	exact_total=35085266512	exact_active=2325655120
+topk=3	total=35.086011472B	active=2.455374928B	exact_total=35086011472	exact_active=2455374928
+topk=4	total=35.086756432B	active=2.585094736B	exact_total=35086756432	exact_active=2585094736
+topk=5	total=35.087501392B	active=2.714814544B	exact_total=35087501392	exact_active=2714814544
+topk=6	total=35.088246352B	active=2.844534352B	exact_total=35088246352	exact_active=2844534352
+topk=7	total=35.088991312B	active=2.974254160B	exact_total=35088991312	exact_active=2974254160
+topk=8	total=35.089736272B	active=3.103973968B	exact_total=35089736272	exact_active=3103973968

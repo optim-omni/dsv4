@@ -1,0 +1,25 @@
+vocab_size=150016
+
+E=256
+topk=04 total=34.682924B active=2.181262B exact_total=34682923600 exact_active=2181261904
+topk=05 total=34.683374B active=2.310687B exact_total=34683373648 exact_active=2310686800
+topk=06 total=34.683824B active=2.440112B exact_total=34683823696 exact_active=2440111696
+topk=07 total=34.684274B active=2.569537B exact_total=34684273744 exact_active=2569536592
+topk=08 total=34.684724B active=2.698961B exact_total=34684723792 exact_active=2698961488
+topk=09 total=34.685174B active=2.828386B exact_total=34685173840 exact_active=2828386384
+topk=10 total=34.685624B active=2.957811B exact_total=34685623888 exact_active=2957811280
+topk=11 total=34.686074B active=3.087236B exact_total=34686073936 exact_active=3087236176
+topk=12 total=34.686524B active=3.216661B exact_total=34686523984 exact_active=3216661072
+topk=13 total=34.686974B active=3.346086B exact_total=34686974032 exact_active=3346085968
+
+E=640
+topk=04 total=84.241524B active=2.213520B exact_total=84241523536 exact_active=2213520208
+topk=05 total=84.241974B active=2.342945B exact_total=84241973584 exact_active=2342945104
+topk=06 total=84.242424B active=2.472370B exact_total=84242423632 exact_active=2472370000
+topk=07 total=84.242874B active=2.601795B exact_total=84242873680 exact_active=2601794896
+topk=08 total=84.243324B active=2.731220B exact_total=84243323728 exact_active=2731219792
+topk=09 total=84.243774B active=2.860645B exact_total=84243773776 exact_active=2860644688
+topk=10 total=84.244224B active=2.990070B exact_total=84244223824 exact_active=2990069584
+topk=11 total=84.244674B active=3.119494B exact_total=84244673872 exact_active=3119494480
+topk=12 total=84.245124B active=3.248919B exact_total=84245123920 exact_active=3248919376
+topk=13 total=84.245574B active=3.378344B exact_total=84245573968 exact_active=3378344272
