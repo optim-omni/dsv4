@@ -41,3 +41,10 @@ python3 scripts/param_count_dsv4.py
 ```
 
 The script fetches the upstream sources, writes `remote_param_count_out/`, and prints the count summary.
+
+Cache/offload calculations:
+
+```bash
+python3 scripts/cache_memory_128k.py --format text
+python3 scripts/cache_memory_128k.py --check-reports
+```

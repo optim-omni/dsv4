@@ -44,7 +44,12 @@ resident_window_bytes = layers * window * head_dim * main_bytes_per_element
 如果为了任意 prefix 长度恢复后立刻继续压缩，还保留 compressor 的增量状态：
 
 ```text
-compressor_incremental_state = 5.640625 MiB
+compressor_state_main_ratio4   = 0.59375 MiB
+compressor_state_main_ratio128 = 4.75 MiB
+compressor_state_indexer_ratio4 = 0.296875 MiB
+
+compressor_incremental_state = 0.59375 + 4.75 + 0.296875
+                             = 5.640625 MiB
 
 resident_with_compressor_state = 1.5625 + 5.640625
                                = 7.203125 MiB
@@ -62,6 +67,8 @@ sliding window KV  = 1.5625 MiB
 external_exact_prefix_total = 311.5 MiB
 ```
 
+这里的 indexer KV 是压缩位置的 scoring cache，不是 raw-token 级别全量 cache。源码里 `Indexer` 自己有 `Compressor(args, compress_ratio, self.head_dim, True)`，并注册 `args.max_seq_len // compress_ratio` 长度的 `kv_cache`；attention 里只有 `compress_ratio == 4` 的层会创建 indexer。
+
 如果 sliding window 常驻内存、不放外存，则外存是：
 
 ```text
@@ -73,7 +80,7 @@ external_exact_prefix_without_window = 195.9375 + 114.0
 
 要让任意 128-token 边界都能瞬时恢复，DSV4 需要两类 backing：
 
-1. compressed KV / indexer KV 可以按 prefix 长度切片复用；
+1. main compressed KV / indexer compressed scoring KV 可以按 prefix 长度切片复用；
 2. 每个 checkpoint 的最后 128 token sliding window 也要可恢复，否则恢复到中间前缀后还要 replay 最近 128 token。
 
 由于 checkpoint 间隔正好等于 sliding window，1024 个 window 不重叠，等价于保存 128k 全量 latent window backing：

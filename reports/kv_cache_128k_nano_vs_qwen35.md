@@ -43,12 +43,27 @@ main_bytes_per_element = ((head_dim - rope_dim) * 1 + rope_dim * 2) / head_dim
                        = 1.25 bytes
 ```
 
-对于 `compress_ratio = 4` 的层，DSV4 还会有 indexer KV：
+对于 `compress_ratio = 4` 的层，DSV4 还有 indexer KV。这里的 `/4` 不是额外假设，而是来自源码里的 indexer 自己带 `Compressor(args, compress_ratio, self.head_dim, True)`，并且它的 `kv_cache` shape 是 `args.max_seq_len // compress_ratio`。也就是说，indexer 保存的是压缩位置的 scoring cache，不是 raw-token 级别的 128k 全量 cache。
 
 ```text
 indexer_slots(layer) = seq_len / 4
 indexer_bytes(layer) = indexer_slots(layer) * index_head_dim * indexer_bytes_per_element
+```
 
+对应源码锚点：
+
+```text
+sources/deepseek_v4_flash/modeling_deepseek_v4.py:
+  Indexer.__init__:
+    self.compressor = Compressor(args, compress_ratio, self.head_dim, True)
+    self.register_buffer("kv_cache", torch.zeros(args.max_batch_size, args.max_seq_len // compress_ratio, self.head_dim), persistent=False)
+  Indexer.forward:
+    index_score = torch.einsum("bshd,btd->bsht", q, self.kv_cache[:bsz, :end_pos // ratio])
+```
+
+本文按 DSV4-nano compressed cache 的混合精度口径计算：非 RoPE 维度 FP8，RoPE 维度 BF16。
+
+```text
 indexer_bytes_per_element = ((index_head_dim - rope_dim) * 1 + rope_dim * 2) / index_head_dim
                           = ((128 - 64) * 1 + 64 * 2) / 128
                           = 1.5 bytes
